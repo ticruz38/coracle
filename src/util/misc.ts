@@ -1,5 +1,5 @@
 import {throttle} from "throttle-debounce"
-import {writable} from "svelte/store"
+import {writable, type Subscriber} from "svelte/store"
 import {now, stripProtocol, isPojo, first, sleep} from "@welshman/lib"
 import {pluck, fromPairs, last, identity, sum, is} from "ramda"
 import {Storage, ensurePlural, seconds, tryFunc, round} from "hurdak"
@@ -341,4 +341,27 @@ export const synced = <T>(key: string, defaultValue: T, delay = 300) => {
   store.subscribe(throttle(delay, ($value: T) => Storage.setJson(key, $value)))
 
   return store
+}
+
+export class SelfStore {
+  subs: Subscriber<typeof this>[] = []
+
+  notify = () => {
+    for (const sub of this.subs) {
+      sub(this)
+    }
+  }
+
+  subscribe = (sub: Subscriber<typeof this>) => {
+    this.subs.push(sub)
+
+    sub(this)
+
+    return () => {
+      this.subs.splice(
+        this.subs.findIndex(s => s === sub),
+        1,
+      )
+    }
+  }
 }

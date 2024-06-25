@@ -142,13 +142,7 @@ import * as Content from "@welshman/content"
 import {withGetter, deriveEvents, deriveEventsMapped} from "@welshman/store"
 import {fuzzy, synced, parseJson, fromCsv, SearchHelper} from "src/util/misc"
 import {Collection as CollectionStore} from "src/util/store"
-import {
-  isLike,
-  repostKinds,
-  noteKinds,
-  reactionKinds,
-  appDataKeys,
-} from "src/util/nostr"
+import {isLike, repostKinds, noteKinds, reactionKinds, appDataKeys} from "src/util/nostr"
 import logger from "src/util/logger"
 import type {
   GroupMeta,
@@ -353,7 +347,7 @@ export const canUnwrap = (event: TrustedEvent) =>
   (getSession(Tags.fromEvent(event).get("p")?.value()) || getRecipientKey(event))
 
 export const ensureUnwrapped = async (event: TrustedEvent) => {
-  if (!event.kind !== WRAP) {
+  if (event.kind !== WRAP) {
     return event
   }
 
@@ -1448,6 +1442,13 @@ export const getTopicSearch = $topics => fuzzy($topics, {keys: ["name"], thresho
 export const searchTopics = topics.derived(getTopicSearch)
 
 export const searchTopicNames = searchTopics.derived(search => term => pluck("name", search(term)))
+
+export class TopicSearch extends SearchHelper<Topic, string> {
+  config = {keys: ["name"]}
+  getValue = (option: Topic) => option.name
+}
+
+export const topicSearch = derived(topics, $topics => new TopicSearch($topics))
 
 // Lists
 
