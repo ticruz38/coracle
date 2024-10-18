@@ -1,7 +1,7 @@
 <script lang="ts">
   import cx from "classnames"
   import {deriveProfileDisplay} from "@welshman/app"
-  import {NodeViewWrapper, NodeViewContent} from "svelte-tiptap"
+  import {NodeViewWrapper} from "svelte-tiptap"
   import Anchor from "src/partials/Anchor.svelte"
   import {router} from "src/app/util/router"
   import type {NodeViewProps} from "@tiptap/core"
