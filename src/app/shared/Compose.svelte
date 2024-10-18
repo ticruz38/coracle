@@ -1,20 +1,74 @@
 <script lang="ts">
   import {nip19} from "nostr-tools"
   import {throttle} from "throttle-debounce"
-  import {createEventDispatcher} from "svelte"
+  import {createEventDispatcher, onMount} from "svelte"
   import {whereEq} from "ramda"
   import {ctx, last, partition} from "@welshman/lib"
   import {displayProfileByPubkey, profileSearch} from "@welshman/app"
   import PersonBadge from "src/app/shared/PersonBadge.svelte"
-  import ContentEditable from "src/partials/ContentEditable.svelte"
   import Suggestions from "src/partials/Suggestions.svelte"
-  import {userFollows, createPeopleLoader} from "src/engine"
+  import {userFollows, createPeopleLoader, getSetting} from "src/engine"
+  import type {Readable} from "svelte/store"
+  import {createEditor, Editor, SvelteNodeViewRenderer} from "svelte-tiptap"
+  import StarterKit from "@tiptap/starter-kit"
+  import {NostrExtension} from "nostr-editor"
+  import {signer} from "@welshman/app"
+  import PersonLink from "src/app/shared/PersonLink.svelte"
+  import NoteContentTopic from "src/app/shared/NoteContentTopic.svelte"
 
   export let onSubmit
   export let autofocus = false
   export let placeholder = null
+  export let hostLimit = 1
+  export let editor: Readable<Editor>
 
   let contenteditable, suggestions
+
+  let element: HTMLDivElement
+
+  onMount(() => {
+    const urls = getSetting("nip96_urls").slice(0, hostLimit)
+    editor = createEditor({
+      autofocus,
+      element: element,
+      editorProps: {
+        attributes: {
+          placeholder,
+        },
+      },
+      extensions: [
+        StarterKit,
+        NostrExtension.configure({
+          extend: {
+            nprofile: {addNodeView: () => SvelteNodeViewRenderer(PersonLink)},
+          },
+          tag: true,
+          image: {
+            defaultUploadUrl: urls[0],
+            defaultUploadType: "nip96",
+          },
+          video: {
+            defaultUploadUrl: urls[0],
+            defaultUploadType: "nip96",
+          },
+          fileUpload: {
+            immediateUpload: true,
+            sign: async event => {
+              return $signer.sign(event)
+            },
+            onDrop() {
+              console.log("onDrop")
+            },
+            onComplete() {
+              console.log("onComplete")
+            },
+          },
+          link: {autolink: true},
+        }),
+      ],
+      content: "",
+    })
+  })
 
   const dispatch = createEventDispatcher()
 
@@ -36,7 +90,7 @@
     },
   }
 
-  const applySearch = throttle(300, word => {
+  const applySearch = throttle(300, (word: string) => {
     let results = []
     if (word.length > 1 && word.startsWith("@")) {
       const [followed, notFollowed] = partition(
@@ -99,6 +153,7 @@
 
     // Topics
     if ((force || word.length > 1) && word.startsWith("#")) {
+      console.log("hash")
       annotate("#", word.slice(1), word.slice(1))
     }
 
@@ -144,7 +199,7 @@
     applySearch(word)
 
     if (["Tab"].includes(e.code)) {
-      autocomplete({pubkey: suggestions.get()})
+      // autocomplete({pubkey: suggestions.get()})
     }
 
     if (["Escape", "Space"].includes(e.code)) {
@@ -163,18 +218,7 @@
   }
 
   export const mention = pubkey => {
-    const input = contenteditable.getInput()
-    const selection = window.getSelection()
-    const textNode = document.createTextNode("@")
-    const spaceNode = document.createTextNode(" ")
-
-    // Insert the text node, then an extra node so we don't break stuff in annotate
-    selection.getRangeAt(0).insertNode(textNode)
-    selection.collapse(input, 1)
-    selection.getRangeAt(0).insertNode(spaceNode)
-    selection.collapse(input, 1)
-
-    autocomplete({pubkey, force: true})
+    $editor.commands.insertNProfile({nprofile: pubkeyEncoder.encode(pubkey)})
   }
 
   const createNewLines = (n = 1) => {
@@ -194,35 +238,11 @@
   }
 
   export const nevent = text => {
-    const input = contenteditable.getInput()
-    const selection = window.getSelection()
-    const textNode = document.createTextNode(text)
-    const newLines = createNewLines(2)
-
-    selection.getRangeAt(0).insertNode(newLines)
-    selection.collapse(input, 1)
-    selection.getRangeAt(0).insertNode(textNode)
-    selection.collapse(input, 0)
-
-    contenteditable.onInput()
+    $editor.commands.insertNEvent(text)
   }
 
   export const write = text => {
-    const input = contenteditable.getInput()
-
-    input.focus()
-
-    const selection = window.getSelection()
-    const textNode = document.createTextNode(text)
-    const target = (last(input.childNodes) || input) as unknown as Node
-    const offset = target instanceof Text ? target.textContent.length : target.childNodes.length
-
-    selection.collapse(target, offset)
-    selection.getRangeAt(0).insertNode(textNode)
-    selection.collapse(textNode, text.length)
-
-    autocomplete()
-    contenteditable.onInput()
+    $editor.commands.insertContent(text)
   }
 
   export const newlines = n => {
@@ -236,35 +256,28 @@
   }
 
   export const parse = () => {
-    let {content, annotations} = contenteditable.parse()
-
-    // Remove zero-width and non-breaking spaces
-    content = content.replace(/[\u200B\u00A0]/g, " ").trim()
-
-    // Strip the @ sign in mentions
-    annotations.filter(whereEq({prefix: "@"})).forEach(({prefix, value}, index) => {
-      content = content.replace(prefix + value, value)
-    })
-
-    return content
+    return $editor.getText()
   }
 </script>
 
 <div class="flex w-full">
-  <ContentEditable
+  <!-- <ContentEditable
     {autofocus}
     {placeholder}
     style={$$props.style}
     class={$$props.class}
     bind:this={contenteditable}
     on:keydown={onKeyDown}
-    on:keyup={onKeyUp} />
+    on:keyup={onKeyUp} /> -->
+  <div bind:this={element} class="w-full" on:keydown={onKeyDown} on:keyup={onKeyUp} />
   <slot name="addon" />
 </div>
 
 <Suggestions
   bind:this={suggestions}
-  select={pubkey => autocomplete({pubkey})}
+  select={pubkey => {
+    autocomplete({pubkey})
+  }}
   loading={$loadingPeople}>
   <div slot="item" let:item>
     <PersonBadge inert pubkey={item} />
