@@ -285,7 +285,7 @@
           </button>
         </div>
       </Field>
-      <NoteImages bind:this={images} bind:compose includeInContent={type !== "listing"} />
+      <!-- <NoteImages bind:this={images} bind:compose includeInContent={type !== "listing"} /> -->
       <div class="flex gap-2">
         <Anchor button tag="button" type="submit" class="flex-grow">Send</Anchor>
         <button

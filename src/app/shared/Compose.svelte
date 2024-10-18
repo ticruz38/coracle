@@ -224,7 +224,12 @@
 </script>
 
 <div class="flex w-full">
-  <div bind:this={element} class="w-full" on:keydown={onKeyDown} on:keyup={onKeyUp} />
+  <div
+    bind:this={element}
+    style={$$props.style}
+    class="w-full"
+    on:keydown={onKeyDown}
+    on:keyup={onKeyUp} />
   <slot name="addon" />
 </div>
 
