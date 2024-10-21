@@ -2,10 +2,10 @@
   import {onMount} from "svelte"
   import {nip19} from "nostr-tools"
   import {v4 as uuid} from "uuid"
-  import {join, whereEq, identity} from "ramda"
+  import {whereEq, identity} from "ramda"
   import {throttle, commaFormat, toTitle, switcherFn} from "hurdak"
   import {writable} from "svelte/store"
-  import {ctx, now} from "@welshman/lib"
+  import {ctx, last, now} from "@welshman/lib"
   import {createEvent} from "@welshman/util"
   import {session, tagPubkey} from "@welshman/app"
   import {currencyOptions} from "src/util/i18n"
@@ -27,10 +27,11 @@
   import NsecWarning from "src/app/shared/NsecWarning.svelte"
   import NoteContent from "src/app/shared/NoteContent.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
-  import NoteImages from "src/app/shared/NoteImages.svelte"
-  import {publish} from "src/engine"
+  import {getSetting, publish} from "src/engine"
   import {router} from "src/app/util/router"
   import {env, getClientTags, tagsFromContent, publishToZeroOrMoreGroups} from "src/engine"
+  import {getEditorOptions} from "../editor"
+  import {Editor} from "svelte-tiptap"
 
   export let type = "note"
   export let quote = null
@@ -40,11 +41,16 @@
 
   const defaultGroups = env.FORCE_GROUP ? [env.FORCE_GROUP] : [group].filter(identity)
 
-  let images, compose
   let charCount = 0
   let wordCount = 0
   let showPreview = false
   let options
+
+  const editorLoading = writable(false)
+  let editor: Editor
+
+  let element: HTMLElement
+
   let opts = {
     title: "",
     warning: "",
@@ -71,7 +77,7 @@
   }
 
   const onSubmit = async ({skipNsecWarning = false} = {}) => {
-    const content = compose.parse().trim()
+    const content = editor.getText().trim()
 
     if (!content) return showWarning("Please provide a description.")
 
@@ -103,13 +109,13 @@
 
     const tags = [...tagsFromContent(content), ...getClientTags()]
 
-    for (const imeta of images.getValue()) {
-      if (type === "listing") {
-        tags.push(["image", imeta.get("url").value()])
-      } else {
-        tags.push(["imeta", ...imeta.unwrap().map(join(" "))])
-      }
-    }
+    // for (const imeta of images.getValue()) {
+    //   if (type === "listing") {
+    //     tags.push(["image", imeta.get("url").value()])
+    //   } else {
+    //     tags.push(["imeta", ...imeta.unwrap().map(join(" "))])
+    //   }
+    // }
 
     if (opts.warning) {
       tags.push(["content-warning", opts.warning])
@@ -164,21 +170,44 @@
   }
 
   const updateCounts = throttle(300, () => {
-    if (compose) {
-      const content = compose.parse()
-
-      charCount = content.length || 0
-      wordCount = content.trim() ? (content.match(/\s+/g)?.length || 0) + 1 : 0
-    }
+    charCount = editor?.storage.characterCount.characters() || 0
+    // wordCount = content.trim() ? (content.match(/\s+/g)?.length || 0) + 1 : 0
+    // }
   })
 
   const setType = t => {
     type = t
   }
 
+  const pubkeyEncoder = {
+    encode: pubkey => {
+      const relays = ctx.app.router.FromPubkeys([pubkey]).getUrls()
+      const nprofile = nip19.nprofileEncode({pubkey, relays})
+
+      return "nostr:" + nprofile
+    },
+    decode: link => {
+      // @ts-ignore
+      return nip19.decode(last(link.split(":"))).data.pubkey
+    },
+  }
+
   onMount(() => {
+    const urls = getSetting("nip96_urls").slice(0, 1)
+    const options = getEditorOptions({
+      submit: onSubmit,
+      loading: editorLoading,
+      element,
+      getPubkeyHints: (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
+      submitOnEnter: true,
+      defaultUploadUrl: urls[0],
+      autofocus: true,
+    })
+
+    editor = new Editor(options)
+
     if (pubkey && pubkey !== $session.pubkey) {
-      compose.mention(pubkey)
+      editor.commands.insertNProfile({nprofile: pubkeyEncoder.encode(pubkey)})
     }
 
     if (quote) {
@@ -189,12 +218,16 @@
         relays: ctx.app.router.Event(quote).getUrls(),
       })
 
-      compose.nevent("nostr:" + nevent)
+      editor.commands.insertNEvent({nevent: "nostr:" + nevent})
     }
   })
 </script>
 
-<form on:submit|preventDefault={() => onSubmit()}>
+<form
+  on:submit|preventDefault={() => {
+    // the submit function is called after files are uploaded in the onComplete callback
+    editor.commands.uploadFiles()
+  }}>
   <Content size="lg">
     <div class="flex gap-2">
       <span class="text-2xl font-bold">Create a</span>
@@ -260,15 +293,10 @@
           class:text-black={!showPreview}
           class:bg-tinted-700={showPreview}>
           {#if showPreview}
-            <NoteContent note={{content: compose.parse(), tags: []}} />
+            <NoteContent note={{content: editor.getText(), tags: []}} />
           {/if}
           <div class:hidden={showPreview}>
-            <Compose
-              hostLimit={3}
-              autofocus
-              on:keyup={updateCounts}
-              bind:this={compose}
-              {onSubmit} />
+            <Compose bind:element bind:editor />
           </div>
         </div>
         <div class="flex items-center justify-end gap-2 text-neutral-200">
@@ -290,10 +318,9 @@
         <Anchor button tag="button" type="submit" class="flex-grow">Send</Anchor>
         <button
           class="hover:bg-white-l staatliches flex h-7 w-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"
-          on:click|preventDefault={compose.selectFiles}>
+          on:click|preventDefault={editor.commands.selectFiles}>
           <i class="fa fa-upload" />
         </button>
-        <!-- <ImageInput multi hostLimit={3} on:change={e => images?.addImage(e.detail)} /> -->
       </div>
       {#if !env.FORCE_GROUP}
         <button

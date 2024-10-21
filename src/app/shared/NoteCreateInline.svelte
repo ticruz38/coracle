@@ -8,12 +8,10 @@
   import Anchor from "src/partials/Anchor.svelte"
   import Popover from "src/partials/Popover.svelte"
   import Compose from "src/app/shared/Compose.svelte"
-  import ImageInput from "src/partials/ImageInput.svelte"
   import AltColor from "src/partials/AltColor.svelte"
   import NsecWarning from "src/app/shared/NsecWarning.svelte"
   import PersonCircle from "src/app/shared/PersonCircle.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
-  import NoteImages from "src/app/shared/NoteImages.svelte"
   import GroupLink from "src/app/shared/GroupLink.svelte"
   import {env, publish, getClientTags, tagsFromContent, publishToZeroOrMoreGroups} from "src/engine"
 
@@ -97,9 +95,6 @@
         bind:this={compose}
         {onSubmit}
         style="min-height: 3em;" />
-      <!-- <div class="p-2">
-        <NoteImages bind:this={images} bind:compose includeInContent />
-      </div> -->
       <div class="flex items-center justify-between">
         <div class="flex items-center justify-end gap-3">
           <i class="fa fa-cog cursor-pointer" on:click={() => options.setView("settings")} />

@@ -59,6 +59,7 @@
     "@scure/base": "^1.1.7",
     "@tiptap/core": "^2.8.0",
     "@tiptap/starter-kit": "^2.8.0",
+    "@tiptap/suggestion": "^2.8.0",
     "@welshman/app": "~0.0.16",
     "@welshman/content": "~0.0.12",
     "@welshman/dvm": "~0.0.10",
