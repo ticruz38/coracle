@@ -1223,6 +1223,17 @@ export const tagsFromContent = (content: string) => {
   return tags
 }
 
+export const tagsFromFiles = (files: {images: EditorImage[]; videos: EditorImage[]}) => {
+  const tags = []
+  for (const image of files.images) {
+    tags.push(["image", image.src])
+  }
+  for (const video of files.videos) {
+    tags.push(["video", video.src])
+  }
+  return tags
+}
+
 export const getClientTags = () => {
   if (!getSetting("enable_client_tag")) {
     return []
@@ -1324,6 +1335,7 @@ export class ThreadLoader {
 
 // Remove the old database. TODO remove this
 import {deleteDB} from "idb"
+import type {EditorImage} from "src/app/editor"
 deleteDB("nostr-engine/Storage")
 
 let ready: Promise<any> = Promise.resolve()

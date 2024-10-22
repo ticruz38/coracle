@@ -5,8 +5,6 @@
 
   export let node: NodeViewProps["node"]
   export let selected: NodeViewProps["selected"]
-
-  $: console.log("editmedia", node?.attrs)
 </script>
 
 <!-- this component display image or videos only, the filter is made by tiptap -->

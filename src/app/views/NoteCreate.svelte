@@ -3,8 +3,8 @@
   import {nip19} from "nostr-tools"
   import {v4 as uuid} from "uuid"
   import {whereEq, identity} from "ramda"
-  import {throttle, commaFormat, toTitle, switcherFn} from "hurdak"
-  import {writable} from "svelte/store"
+  import {commaFormat, toTitle, switcherFn} from "hurdak"
+  import {writable, type Writable} from "svelte/store"
   import {ctx, last, now} from "@welshman/lib"
   import {createEvent} from "@welshman/util"
   import {session, tagPubkey} from "@welshman/app"
@@ -27,7 +27,7 @@
   import NsecWarning from "src/app/shared/NsecWarning.svelte"
   import NoteContent from "src/app/shared/NoteContent.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
-  import {getSetting, publish} from "src/engine"
+  import {getSetting, publish, tagsFromFiles} from "src/engine"
   import {router} from "src/app/util/router"
   import {env, getClientTags, tagsFromContent, publishToZeroOrMoreGroups} from "src/engine"
   import {getEditorOptions} from "../editor"
@@ -41,14 +41,12 @@
 
   const defaultGroups = env.FORCE_GROUP ? [env.FORCE_GROUP] : [group].filter(identity)
 
-  let charCount = 0
-  let wordCount = 0
+  let charCount: Writable<number>
+  let wordCount: Writable<number>
   let showPreview = false
   let options
 
-  const editorLoading = writable(false)
   let editor: Editor
-
   let element: HTMLElement
 
   let opts = {
@@ -107,15 +105,11 @@
       }
     }
 
-    const tags = [...tagsFromContent(content), ...getClientTags()]
-
-    // for (const imeta of images.getValue()) {
-    //   if (type === "listing") {
-    //     tags.push(["image", imeta.get("url").value()])
-    //   } else {
-    //     tags.push(["imeta", ...imeta.unwrap().map(join(" "))])
-    //   }
-    // }
+    const tags = [
+      ...tagsFromContent(content),
+      ...getClientTags(),
+      ...tagsFromFiles(editor.storage.fileUpload),
+    ]
 
     if (opts.warning) {
       tags.push(["content-warning", opts.warning])
@@ -169,12 +163,6 @@
     showPreview = !showPreview
   }
 
-  const updateCounts = throttle(300, () => {
-    charCount = editor?.storage.characterCount.characters() || 0
-    // wordCount = content.trim() ? (content.match(/\s+/g)?.length || 0) + 1 : 0
-    // }
-  })
-
   const setType = t => {
     type = t
   }
@@ -196,7 +184,6 @@
     const urls = getSetting("nip96_urls").slice(0, 1)
     const options = getEditorOptions({
       submit: onSubmit,
-      loading: editorLoading,
       element,
       getPubkeyHints: (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
       submitOnEnter: true,
@@ -205,6 +192,9 @@
     })
 
     editor = new Editor(options)
+
+    charCount = editor.storage.wordCount.characters
+    wordCount = editor.storage.wordCount.words
 
     if (pubkey && pubkey !== $session.pubkey) {
       editor.commands.insertNProfile({nprofile: pubkeyEncoder.encode(pubkey)})
@@ -301,11 +291,11 @@
         </div>
         <div class="flex items-center justify-end gap-2 text-neutral-200">
           <small>
-            {commaFormat(charCount)} characters
+            {commaFormat($charCount || 0)} characters
           </small>
           <span>•</span>
           <small>
-            {commaFormat(wordCount)} words
+            {commaFormat($wordCount || 0)} words
           </small>
           <span>•</span>
           <button type="button" on:click={togglePreview} class="cursor-pointer text-sm underline">

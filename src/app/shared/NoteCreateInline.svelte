@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {join, identity} from "ramda"
+  import {identity} from "ramda"
   import {writable} from "svelte/store"
   import {ctx} from "@welshman/lib"
   import {Tags, createEvent} from "@welshman/util"
@@ -13,10 +13,24 @@
   import PersonCircle from "src/app/shared/PersonCircle.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
   import GroupLink from "src/app/shared/GroupLink.svelte"
-  import {env, publish, getClientTags, tagsFromContent, publishToZeroOrMoreGroups} from "src/engine"
+  import {
+    env,
+    publish,
+    getClientTags,
+    tagsFromContent,
+    publishToZeroOrMoreGroups,
+    getSetting,
+    tagsFromFiles,
+  } from "src/engine"
+  import {onMount} from "svelte"
+  import {Editor} from "svelte-tiptap"
+  import {getEditorOptions} from "src/app/editor"
 
   export let parent = null
   export let group = null
+
+  let editorElement: HTMLElement
+  let editor: Editor
 
   if (parent && group) {
     throw new Error("Either parent or group is allowed, not both")
@@ -30,7 +44,7 @@
 
   const defaultOpts = {anonymous: false, warning: ""}
 
-  let images, compose, options, saving
+  let options, saving
 
   let opts = {...defaultOpts}
 
@@ -48,22 +62,22 @@
   const onSubmit = async ({skipNsecWarning = false} = {}) => {
     saving = true
 
-    const content = compose.parse().trim()
+    const content = editor.getText().trim()
 
     if (!content) return showWarning("Please provide a description.")
 
     if (!skipNsecWarning && content.match(/\bnsec1.+/)) return nsecWarning.set(true)
 
-    const tags = [...tagsFromContent(content), ...getClientTags()]
+    const tags = [
+      ...tagsFromContent(content),
+      ...getClientTags(),
+      ...tagsFromFiles(editor.storage.files),
+    ]
 
     if (parent) {
       for (const tag of tagReplyTo(parent)) {
         tags.push(tag)
       }
-    }
-
-    for (const imeta of images.getValue()) {
-      tags.push(["imeta", ...imeta.unwrap().map(join(" "))])
     }
 
     if (opts.warning) {
@@ -80,27 +94,39 @@
 
     showPublishInfo(pubs[0])
     opts = {...defaultOpts}
-    compose.clear()
+
+    editor.commands.clearContent()
     saving = false
   }
+
+  onMount(() => {
+    const urls = getSetting("nip96_urls").slice(0, 1)
+
+    const options = getEditorOptions({
+      submit: onSubmit,
+      element: editorElement,
+      getPubkeyHints: (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
+      submitOnEnter: true,
+      defaultUploadUrl: urls[0],
+      autofocus: true,
+    })
+
+    editor = new Editor(options)
+  })
 </script>
 
 <form on:submit|preventDefault={() => onSubmit()}>
   <AltColor background class="z-feature flex gap-4 overflow-hidden rounded p-3 text-neutral-100">
     <PersonCircle class="h-10 w-10" pubkey={$pubkey} />
     <div class="w-full min-w-0">
-      <Compose
-        placeholder="What's up?"
-        hostLimit={3}
-        bind:this={compose}
-        {onSubmit}
-        style="min-height: 3em;" />
+      <!-- placeholder="What's up?" -->
+      <Compose bind:element={editorElement} {editor} style="min-height: 3em;" />
       <div class="flex items-center justify-between">
         <div class="flex items-center justify-end gap-3">
           <i class="fa fa-cog cursor-pointer" on:click={() => options.setView("settings")} />
           <button
             class="hover:bg-white-l staatliches flex h-7 w-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"
-            on:click|preventDefault={compose.selectFiles}>
+            on:click|preventDefault={editor.commands.selectFiles}>
             <i class="fa fa-paperclip cursor-pointer" />
           </button>
           {#if group}
@@ -112,7 +138,7 @@
             </Popover>
           {/if}
         </div>
-        <Anchor button accent disabled={saving} on:click={() => onSubmit()}>Send</Anchor>
+        <Anchor button accent disabled={saving} on:click={editor.commands.uploadFiles}>Send</Anchor>
       </div>
     </div>
   </AltColor>

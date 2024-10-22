@@ -2,20 +2,29 @@
   import {writable} from "svelte/store"
   import {Tags, createEvent, uniqTags} from "@welshman/util"
   import {createEventDispatcher} from "svelte"
-  import {join, without, uniq} from "ramda"
+  import {without, uniq} from "ramda"
   import {ctx} from "@welshman/lib"
   import {session, displayProfileByPubkey, tagReplyTo, tagPubkey} from "@welshman/app"
   import {slide} from "src/util/transition"
   import {showPublishInfo} from "src/partials/Toast.svelte"
-  import ImageInput from "src/partials/ImageInput.svelte"
   import AltColor from "src/partials/AltColor.svelte"
   import Chip from "src/partials/Chip.svelte"
   import Compose from "src/app/shared/Compose.svelte"
   import NsecWarning from "src/app/shared/NsecWarning.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
-  import NoteImages from "src/app/shared/NoteImages.svelte"
-  import {env, publish, publishToZeroOrMoreGroups, tagsFromContent, getClientTags} from "src/engine"
+  import {
+    env,
+    publish,
+    publishToZeroOrMoreGroups,
+    tagsFromContent,
+    getClientTags,
+    getSetting,
+    tagsFromFiles,
+  } from "src/engine"
   import {drafts} from "src/app/state"
+  import {Editor} from "svelte-tiptap"
+  import {getEditorOptions} from "../editor"
+  import type {NostrEvent} from "nostr-tools"
 
   export let parent
   export let addToContext
@@ -27,10 +36,12 @@
   const nsecWarning = writable(null)
   const parentTags = Tags.fromEvent(parent)
 
-  let images, compose, container, options, loading
+  let container, options, loading
   let isOpen = false
   let mentions = []
   let opts = {warning: "", anonymous: false}
+  let editorElement: HTMLElement
+  let editor: Editor
 
   export const start = () => {
     dispatch("start")
@@ -44,7 +55,7 @@
     const draft = drafts.get(parent.id)
 
     if (draft) {
-      setTimeout(() => compose.write(draft), 10)
+      editor.commands.setEventContent({kind: 1, content: draft} as NostrEvent)
     }
   }
 
@@ -58,8 +69,8 @@
   }
 
   const saveDraft = () => {
-    if (compose) {
-      drafts.set(parent.id, compose.parse())
+    if (editor) {
+      drafts.set(parent.id, editor.getText())
     }
   }
 
@@ -71,7 +82,6 @@
     dispatch("reset")
 
     isOpen = false
-    compose = null
     mentions = []
   }
 
@@ -80,7 +90,7 @@
   }
 
   const send = async ({skipNsecWarning = false} = {}) => {
-    const content = compose.parse().trim()
+    const content = editor.getText().trim()
 
     if (!content) return
 
@@ -90,12 +100,9 @@
       ...mentions.map(tagPubkey),
       ...tagReplyTo(parent),
       ...tagsFromContent(content),
+      ...tagsFromFiles(editor.storage.fileUpload),
       ...getClientTags(),
     ])
-
-    for (const imeta of images.getValue()) {
-      tags.push(["imeta", ...imeta.unwrap().map(join(" "))])
-    }
 
     if (opts.warning) {
       tags.push(["content-warning", opts.warning])
@@ -129,6 +136,22 @@
       reset()
     }
   }
+
+  const createEditor = () => {
+    const urls = getSetting("nip96_urls").slice(0, 1)
+    const options = getEditorOptions({
+      submit: send,
+      element: editorElement,
+      getPubkeyHints: (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
+      submitOnEnter: true,
+      defaultUploadUrl: urls[0],
+      autofocus: true,
+    })
+
+    editor = new Editor({...options})
+  }
+
+  $: editorElement && createEditor()
 </script>
 
 <svelte:body on:click={onBodyClick} />
@@ -149,14 +172,13 @@
       <AltColor background class="overflow-hidden rounded">
         <div class="p-3 text-neutral-100" class:rounded-b={mentions.length === 0}>
           <Compose
-            autofocus
-            hostLimit={3}
-            bind:this={compose}
-            onSubmit={() => send()}
-            style="min-height: 4rem">
+            bind:element={editorElement}
+            {editor}
+            style="min-height: 8rem"
+            class="rounded-md border p-2">
             <div class="flex flex-col justify-start" slot="addon">
               <button
-                on:click={() => send()}
+                on:click={editor.commands.uploadFiles}
                 class="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full transition-all hover:bg-accent">
                 {#if loading}
                   <i class="fa fa-circle-notch fa-spin" />
@@ -167,16 +189,13 @@
             </div>
           </Compose>
         </div>
-        <!-- <div class="p-2">
-          <NoteImages bind:this={images} bind:compose includeInContent />
-        </div> -->
         <div class="h-px" />
         <div class="flex gap-2 rounded-b p-2 text-sm text-neutral-100">
           <div class="inline-block border-r border-solid border-neutral-600 py-2 pl-1 pr-3">
             <div class="flex cursor-pointer items-center gap-3">
               <button
                 class="hover:bg-white-l staatliches flex h-7 w-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"
-                on:click|preventDefault={compose.selectFiles}>
+                on:click|preventDefault={editor.commands.selectFiles}>
                 <!-- <ImageInput multi hostLimit={3} on:change={e => images.addImage(e.detail)}> -->
                 <i class="fa fa-paperclip" />
               </button>
@@ -186,7 +205,7 @@
               <i class="fa fa-at" />
             </div>
           </div>
-          <div on:click|stopPropagation>
+          <div on:click|stopPropagation class="flex items-center">
             {#each mentions as pubkey}
               <Chip class="mb-1 mr-1" onRemove={() => removeMention(pubkey)}>
                 {displayProfileByPubkey(pubkey)}

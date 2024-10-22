@@ -1,4 +1,3 @@
-import type {Writable} from "svelte/store"
 import {nprofileEncode} from "nostr-tools/nip19"
 import {SvelteNodeViewRenderer} from "svelte-tiptap"
 import Code from "@tiptap/extension-code"
@@ -32,6 +31,7 @@ import EditLink from "./EditLink.svelte"
 import Suggestions from "./Suggestions.svelte"
 import SuggestionProfile from "./SuggestionProfile.svelte"
 import {uploadFiles, asInline} from "./util"
+import {WordCount} from "./wordcounts"
 
 export {
   createSuggestions,
@@ -47,12 +47,16 @@ export * from "./util"
 
 type EditorOptions = {
   submit: () => void
-  loading: Writable<boolean>
   getPubkeyHints: (pubkey: string) => string[]
   element?: HTMLElement
   submitOnEnter?: boolean
   defaultUploadUrl?: string
   autofocus?: boolean
+}
+
+export type EditorImage = {
+  src: string
+  sha256: string
 }
 
 export const getModifiedHardBreakExtension = () =>
@@ -64,7 +68,6 @@ export const getModifiedHardBreakExtension = () =>
         Enter: () => {
           if (this.editor.getText().trim()) {
             uploadFiles(this.editor)
-
             return true
           }
 
@@ -76,7 +79,6 @@ export const getModifiedHardBreakExtension = () =>
 
 export const getEditorOptions = ({
   submit,
-  loading,
   getPubkeyHints,
   submitOnEnter,
   element,
@@ -96,6 +98,7 @@ export const getEditorOptions = ({
     Paragraph,
     Text,
     TagExtension,
+    WordCount,
     submitOnEnter ? getModifiedHardBreakExtension() : HardBreakExtension,
     LinkExtension.extend({addNodeView: () => SvelteNodeViewRenderer(EditLink)}),
     Bolt11Extension.extend(asInline({addNodeView: () => SvelteNodeViewRenderer(EditBolt11)})),
@@ -128,14 +131,33 @@ export const getEditorOptions = ({
     VideoExtension.extend(
       asInline({addNodeView: () => SvelteNodeViewRenderer(EditMedia)}),
     ).configure({defaultUploadUrl, defaultUploadType: "nip96"}),
-    FileUploadExtension.configure({
+    FileUploadExtension.extend({
+      addStorage() {
+        return {
+          images: [],
+          videos: [],
+        } as {images: EditorImage[]; videos: EditorImage[]}
+      },
+    }).configure({
       immediateUpload: false,
       sign: (event: StampedEvent) => {
-        loading.set(true)
         return signer.get()!.sign(event)
       },
-      onComplete: () => {
-        loading.set(false)
+      onComplete: editor => {
+        editor.view.state.doc.descendants((node, pos) => {
+          if (!(node.type.name === "image" || node.type.name === "video")) {
+            return
+          }
+          if (node.attrs.uploading == true) {
+            return
+          }
+          const storage = editor.storage.fileUpload
+          if (node.type.name === "image") {
+            storage.images = [...storage.images, {src: node.attrs.src, sha256: node.attrs.sha256}]
+          } else if (node.type.name === "video") {
+            storage.videos = [...storage.videos, {src: node.attrs.src, sha256: node.attrs.sha256}]
+          }
+        })
         submit()
       },
     }),
