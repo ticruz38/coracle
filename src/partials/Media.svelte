@@ -23,6 +23,17 @@
 
     return json
   }
+  function getYouTubeId(url) {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/
+    const match = url.match(regExp)
+    return match && match[2].length === 11 ? match[2] : null
+  }
+
+  function getTwitterId(url) {
+    const regExp = /^.*(twitter.com|x.com)\/\w+\/status\/(\d+)/
+    const match = url.match(regExp)
+    return match ? match[2] : null
+  }
 </script>
 
 <div class="my-2">
@@ -54,8 +65,8 @@
           loading="lazy" />
       {:else if url.match(/tidal.com/)}
         {@const {pathname} = new URL(url)}
-        {@const id = last(pathname.split('/'))}
-        {@const name = pathname.includes('album') ? 'albums' : 'tracks'}
+        {@const id = last(pathname.split("/"))}
+        {@const name = pathname.includes("album") ? "albums" : "tracks"}
         {@const src = `https://embed.tidal.com/${name}/${id}`}
         <iframe
           {src}
@@ -69,6 +80,27 @@
           sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
           title="TIDAL Embed Player"
           loading="lazy" />
+      {:else if url.match(/youtube.com|youtu.be/)}
+        {@const videoId = getYouTubeId(url)}
+        <iframe
+          src={`https://www.youtube.com/embed/${videoId}`}
+          frameBorder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          title="YouTube video player"
+          class="max-h-96 object-contain object-center"
+          loading="lazy">
+        </iframe>
+      {:else if url.match(/x.com|twitter.com/)}
+        {@const tweetId = getTwitterId(url)}
+        {@const twt = window.twttr.widgets.load()}
+        {#if tweetId}
+          <blockquote class="twitter-tweet" data-dnt="true">
+            <a href={`https://twitter.com/x/status/${tweetId}`}></a>
+          </blockquote>
+        {:else}
+          <p>Invalid Twitter URL</p>
+        {/if}
       {:else if url.match(/\.(mov|webm|mp4)$/)}
         <video controls src={url} class="max-h-96 object-contain object-center" />
       {:else if url.match(/\.(jpe?g|png|gif|webp)$/)}

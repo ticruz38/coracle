@@ -29,11 +29,11 @@
     return match && match[2].length === 11 ? match[2] : null
   }
 
-  // function getTwitterId(url) {
-  //   const regExp = /^.*(twitter.com|x.com)\/\w+\/status\/(\d+)/
-  //   const match = url.match(regExp)
-  //   return match ? match[2] : null
-  // }
+  function getTwitterId(url) {
+    const regExp = /^.*(twitter.com|x.com)\/\w+\/status\/(\d+)/
+    const match = url.match(regExp)
+    return match ? match[2] : null
+  }
 </script>
 
 <NodeViewWrapper class="block">
@@ -89,7 +89,7 @@
           class="max-h-96 object-contain object-center"
           loading="lazy">
         </iframe>
-        <!-- {:else if url.match(/x.com|twitter.com/)}
+      {:else if url.match(/x.com|twitter.com/)}
         {@const tweetId = getTwitterId(url)}
         {@const twt = window.twttr.widgets.load()}
         {#if tweetId}
@@ -98,7 +98,7 @@
           </blockquote>
         {:else}
           <p>Invalid Twitter URL</p>
-        {/if} -->
+        {/if}
       {:else}
         {#await loadPreview()}
           <Spinner />
