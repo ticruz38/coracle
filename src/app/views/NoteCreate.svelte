@@ -27,10 +27,10 @@
   import NsecWarning from "src/app/shared/NsecWarning.svelte"
   import NoteContent from "src/app/shared/NoteContent.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
-  import {getSetting, publish, tagsFromFiles} from "src/engine"
+  import {publish} from "src/engine"
   import {router} from "src/app/util/router"
   import {env, getClientTags, tagsFromContent, publishToZeroOrMoreGroups} from "src/engine"
-  import {getEditorOptions} from "../editor"
+  import {getEditorOptions} from "src/app/editor"
   import {Editor} from "svelte-tiptap"
 
   export let type = "note"
@@ -43,6 +43,7 @@
 
   let charCount: Writable<number>
   let wordCount: Writable<number>
+  let editorLoading: Writable<boolean>
   let showPreview = false
   let options
 
@@ -75,6 +76,9 @@
   }
 
   const onSubmit = async ({skipNsecWarning = false} = {}) => {
+    // prevent sending before media are uploaded and tags are correctly set
+    if ($editorLoading) return
+
     const content = editor.getText().trim()
 
     if (!content) return showWarning("Please provide a description.")
@@ -104,12 +108,7 @@
         return showWarning("Please select a currency.")
       }
     }
-
-    const tags = [
-      ...tagsFromContent(content),
-      ...getClientTags(),
-      ...tagsFromFiles(editor.storage.fileUpload),
-    ]
+    const tags = [...tagsFromContent(content), ...getClientTags(), ...editor.commands.getMetaTags()]
 
     if (opts.warning) {
       tags.push(["content-warning", opts.warning])
@@ -181,13 +180,10 @@
   }
 
   onMount(() => {
-    const urls = getSetting("nip96_urls").slice(0, 1)
     const options = getEditorOptions({
       submit: onSubmit,
       element,
-      getPubkeyHints: (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
       submitOnEnter: true,
-      defaultUploadUrl: urls[0],
       autofocus: true,
     })
 
@@ -195,6 +191,7 @@
 
     charCount = editor.storage.wordCount.characters
     wordCount = editor.storage.wordCount.words
+    editorLoading = editor.storage.fileUpload.loading
 
     if (pubkey && pubkey !== $session.pubkey) {
       editor.commands.insertNProfile({nprofile: pubkeyEncoder.encode(pubkey)})
@@ -215,8 +212,7 @@
 
 <form
   on:submit|preventDefault={() => {
-    // the submit function is called after files are uploaded in the onComplete callback
-    editor.commands.uploadFiles()
+    onSubmit()
   }}>
   <Content size="lg">
     <div class="flex gap-2">
@@ -286,7 +282,7 @@
             <NoteContent note={{content: editor.getText(), tags: []}} />
           {/if}
           <div class:hidden={showPreview}>
-            <Compose bind:element bind:editor />
+            <Compose bind:element {editor} />
           </div>
         </div>
         <div class="flex items-center justify-end gap-2 text-neutral-200">
@@ -305,7 +301,8 @@
       </Field>
       <!-- <NoteImages bind:this={images} bind:compose includeInContent={type !== "listing"} /> -->
       <div class="flex gap-2">
-        <Anchor button tag="button" type="submit" class="flex-grow">Send</Anchor>
+        <Anchor button tag="button" type="submit" class="flex-grow" disabled={$editorLoading}
+          >Send</Anchor>
         <button
           class="hover:bg-white-l staatliches flex h-7 w-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"
           on:click|preventDefault={editor.commands.selectFiles}>

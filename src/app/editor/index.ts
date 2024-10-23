@@ -17,8 +17,8 @@ import {
   ImageExtension,
   VideoExtension,
   TagExtension,
-  FileUploadExtension,
 } from "nostr-editor"
+import {ctx} from "@welshman/lib"
 import type {StampedEvent} from "@welshman/util"
 import {signer, profileSearch} from "@welshman/app"
 import {createSuggestions} from "./Suggestions"
@@ -30,8 +30,10 @@ import EditMedia from "./EditMedia.svelte"
 import EditLink from "./EditLink.svelte"
 import Suggestions from "./Suggestions.svelte"
 import SuggestionProfile from "./SuggestionProfile.svelte"
-import {uploadFiles, asInline} from "./util"
+import {asInline} from "./util"
 import {WordCount} from "./wordcounts"
+import {FileUploadExtension} from "./FileUpload"
+import {getSetting} from "src/engine"
 
 export {
   createSuggestions,
@@ -47,11 +49,12 @@ export * from "./util"
 
 type EditorOptions = {
   submit: () => void
-  getPubkeyHints: (pubkey: string) => string[]
+  getPubkeyHints?: (pubkey: string) => string[]
   element?: HTMLElement
   submitOnEnter?: boolean
   defaultUploadUrl?: string
   autofocus?: boolean
+  content?: string
 }
 
 export type EditorImage = {
@@ -59,7 +62,7 @@ export type EditorImage = {
   sha256: string
 }
 
-export const getModifiedHardBreakExtension = () =>
+export const getModifiedHardBreakExtension = (submit: () => void) =>
   HardBreakExtension.extend({
     addKeyboardShortcuts() {
       return {
@@ -67,7 +70,7 @@ export const getModifiedHardBreakExtension = () =>
         "Mod-Enter": () => this.editor.commands.setHardBreak(),
         Enter: () => {
           if (this.editor.getText().trim()) {
-            uploadFiles(this.editor)
+            submit()
             return true
           }
 
@@ -79,15 +82,16 @@ export const getModifiedHardBreakExtension = () =>
 
 export const getEditorOptions = ({
   submit,
-  getPubkeyHints,
+  getPubkeyHints = (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
   submitOnEnter,
   element,
-  defaultUploadUrl = "https://nostr.build",
+  defaultUploadUrl = getSetting("nip96_urls").slice(0, 1)[0] || "https://nostr.build",
   autofocus = false,
+  content = "",
 }: EditorOptions) => ({
   autofocus,
   element,
-  content: "",
+  content,
   extensions: [
     Code,
     CodeBlock,
@@ -99,7 +103,7 @@ export const getEditorOptions = ({
     Text,
     TagExtension,
     WordCount,
-    submitOnEnter ? getModifiedHardBreakExtension() : HardBreakExtension,
+    submitOnEnter ? getModifiedHardBreakExtension(submit) : HardBreakExtension,
     LinkExtension.extend({addNodeView: () => SvelteNodeViewRenderer(EditLink)}),
     Bolt11Extension.extend(asInline({addNodeView: () => SvelteNodeViewRenderer(EditBolt11)})),
     NProfileExtension.extend({
@@ -131,34 +135,10 @@ export const getEditorOptions = ({
     VideoExtension.extend(
       asInline({addNodeView: () => SvelteNodeViewRenderer(EditMedia)}),
     ).configure({defaultUploadUrl, defaultUploadType: "nip96"}),
-    FileUploadExtension.extend({
-      addStorage() {
-        return {
-          images: [],
-          videos: [],
-        } as {images: EditorImage[]; videos: EditorImage[]}
-      },
-    }).configure({
-      immediateUpload: false,
+    FileUploadExtension.configure({
+      immediateUpload: true,
       sign: (event: StampedEvent) => {
         return signer.get()!.sign(event)
-      },
-      onComplete: editor => {
-        editor.view.state.doc.descendants((node, pos) => {
-          if (!(node.type.name === "image" || node.type.name === "video")) {
-            return
-          }
-          if (node.attrs.uploading == true) {
-            return
-          }
-          const storage = editor.storage.fileUpload
-          if (node.type.name === "image") {
-            storage.images = [...storage.images, {src: node.attrs.src, sha256: node.attrs.sha256}]
-          } else if (node.type.name === "video") {
-            storage.videos = [...storage.videos, {src: node.attrs.src, sha256: node.attrs.sha256}]
-          }
-        })
-        submit()
       },
     }),
   ],

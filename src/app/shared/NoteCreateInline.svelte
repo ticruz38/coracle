@@ -1,6 +1,6 @@
 <script lang="ts">
   import {identity} from "ramda"
-  import {writable} from "svelte/store"
+  import {writable, type Writable} from "svelte/store"
   import {ctx} from "@welshman/lib"
   import {Tags, createEvent} from "@welshman/util"
   import {pubkey, tagReplyTo} from "@welshman/app"
@@ -20,7 +20,6 @@
     tagsFromContent,
     publishToZeroOrMoreGroups,
     getSetting,
-    tagsFromFiles,
   } from "src/engine"
   import {onMount} from "svelte"
   import {Editor} from "svelte-tiptap"
@@ -31,6 +30,7 @@
 
   let editorElement: HTMLElement
   let editor: Editor
+  let editorLoading: Writable<boolean>
 
   if (parent && group) {
     throw new Error("Either parent or group is allowed, not both")
@@ -60,6 +60,8 @@
   }
 
   const onSubmit = async ({skipNsecWarning = false} = {}) => {
+    if ($editorLoading) return
+
     saving = true
 
     const content = editor.getText().trim()
@@ -68,11 +70,7 @@
 
     if (!skipNsecWarning && content.match(/\bnsec1.+/)) return nsecWarning.set(true)
 
-    const tags = [
-      ...tagsFromContent(content),
-      ...getClientTags(),
-      ...tagsFromFiles(editor.storage.files),
-    ]
+    const tags = [...tagsFromContent(content), ...getClientTags(), ...editor.commands.getMetaTags()]
 
     if (parent) {
       for (const tag of tagReplyTo(parent)) {
@@ -100,18 +98,16 @@
   }
 
   onMount(() => {
-    const urls = getSetting("nip96_urls").slice(0, 1)
-
     const options = getEditorOptions({
       submit: onSubmit,
       element: editorElement,
-      getPubkeyHints: (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
       submitOnEnter: true,
-      defaultUploadUrl: urls[0],
       autofocus: true,
     })
 
     editor = new Editor(options)
+
+    editorLoading = editor.storage.fileUpload.loading
   })
 </script>
 
@@ -138,7 +134,11 @@
             </Popover>
           {/if}
         </div>
-        <Anchor button accent disabled={saving} on:click={editor.commands.uploadFiles}>Send</Anchor>
+        <Anchor
+          button
+          accent
+          disabled={saving || $editorLoading}
+          on:click={editor.commands.uploadFiles}>Send</Anchor>
       </div>
     </div>
   </AltColor>

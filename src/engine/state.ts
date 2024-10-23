@@ -1223,17 +1223,6 @@ export const tagsFromContent = (content: string) => {
   return tags
 }
 
-export const tagsFromFiles = (files: {images: EditorImage[]; videos: EditorImage[]}) => {
-  const tags = []
-  for (const image of files.images) {
-    tags.push(["image", image.src])
-  }
-  for (const video of files.videos) {
-    tags.push(["video", video.src])
-  }
-  return tags
-}
-
 export const getClientTags = () => {
   if (!getSetting("enable_client_tag")) {
     return []

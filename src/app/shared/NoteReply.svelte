@@ -1,5 +1,5 @@
 <script lang="ts">
-  import {writable} from "svelte/store"
+  import {writable, type Writable} from "svelte/store"
   import {Tags, createEvent, uniqTags} from "@welshman/util"
   import {createEventDispatcher} from "svelte"
   import {without, uniq} from "ramda"
@@ -19,12 +19,10 @@
     tagsFromContent,
     getClientTags,
     getSetting,
-    tagsFromFiles,
   } from "src/engine"
   import {drafts} from "src/app/state"
   import {Editor} from "svelte-tiptap"
-  import {getEditorOptions} from "../editor"
-  import type {NostrEvent} from "nostr-tools"
+  import {getEditorOptions} from "src/app/editor"
 
   export let parent
   export let addToContext
@@ -42,6 +40,7 @@
   let opts = {warning: "", anonymous: false}
   let editorElement: HTMLElement
   let editor: Editor
+  let editorLoading: Writable<boolean>
 
   export const start = () => {
     dispatch("start")
@@ -51,12 +50,6 @@
       [$session.pubkey],
       uniq(parentTags.values("p").valueOf().concat(parent.pubkey)),
     )
-
-    const draft = drafts.get(parent.id)
-
-    if (draft) {
-      editor.commands.setEventContent({kind: 1, content: draft} as NostrEvent)
-    }
   }
 
   const bypassNsecWarning = () => {
@@ -70,7 +63,7 @@
 
   const saveDraft = () => {
     if (editor) {
-      drafts.set(parent.id, editor.getText())
+      drafts.set(parent.id, editor.getHTML())
     }
   }
 
@@ -90,6 +83,8 @@
   }
 
   const send = async ({skipNsecWarning = false} = {}) => {
+    if ($editorLoading) return
+
     const content = editor.getText().trim()
 
     if (!content) return
@@ -100,7 +95,7 @@
       ...mentions.map(tagPubkey),
       ...tagReplyTo(parent),
       ...tagsFromContent(content),
-      ...tagsFromFiles(editor.storage.fileUpload),
+      ...editor.commands.getMetaTags(),
       ...getClientTags(),
     ])
 
@@ -138,17 +133,19 @@
   }
 
   const createEditor = () => {
-    const urls = getSetting("nip96_urls").slice(0, 1)
+    const draft = drafts.get(parent.id)
+
     const options = getEditorOptions({
       submit: send,
       element: editorElement,
-      getPubkeyHints: (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
       submitOnEnter: true,
-      defaultUploadUrl: urls[0],
       autofocus: true,
+      content: draft || "",
     })
 
     editor = new Editor({...options})
+
+    editorLoading = editor.storage.fileUpload.loading
   }
 
   $: editorElement && createEditor()
@@ -178,7 +175,8 @@
             class="rounded-md border p-2">
             <div class="flex flex-col justify-start" slot="addon">
               <button
-                on:click={editor.commands.uploadFiles}
+                on:click={send}
+                disabled={$editorLoading}
                 class="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full transition-all hover:bg-accent">
                 {#if loading}
                   <i class="fa fa-circle-notch fa-spin" />
@@ -196,7 +194,6 @@
               <button
                 class="hover:bg-white-l staatliches flex h-7 w-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"
                 on:click|preventDefault={editor.commands.selectFiles}>
-                <!-- <ImageInput multi hostLimit={3} on:change={e => images.addImage(e.detail)}> -->
                 <i class="fa fa-paperclip" />
               </button>
               {#if !env.FORCE_GROUP}
