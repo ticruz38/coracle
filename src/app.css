@@ -236,14 +236,26 @@ body,
   border: 1px solid var(--neutral-600);
 }
 
-/* note content */
-
-.note-content > a {
-  text-decoration: underline;
-}
-
 /* nostr-editor */
 .tiptap {
   outline: none;
-  min-height: 200px;
+  min-height: 0;
+  height: 100%;
+}
+
+.tiptap pre code {
+  @apply link-content block w-full;
+}
+
+.tiptap p code {
+  @apply link-content;
+}
+
+.link-content,
+[tag] {
+  @apply max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded px-1 no-underline;
+}
+
+.link-content.link-content-selected {
+  /* @apply bg-primary text-primary-content; */
 }

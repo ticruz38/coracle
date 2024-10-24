@@ -158,10 +158,9 @@ class Uploader {
     this.view.dispatch(tr)
 
     if (this.options.immediateUpload) {
-      // setTimeout(() => {
       this.editor.storage.fileUpload.loading.set(true)
-      this.upload(node, pos + 1)
-      this.editor.storage.fileUpload.loading.set(false)
+      this.upload(node, pos + 1).then(() => this.editor.storage.fileUpload.loading.set(false))
+
       // }, 1000)
     }
     this.options.onDrop(this.editor, file, pos)
