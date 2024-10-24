@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="script-src 'self' plausible.io 'nonce-A132076C'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; frame-src open.spotify.com embed.tidal.com *.youtube.com *.youtu.be *.x.com *.twitter.com; child-src 'none'; form-action 'none';" />
+      content="script-src 'self' plausible.io 'nonce-A132076C'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; frame-src open.spotify.com embed.tidal.com *.youtube.com www.youtube.com play.google.com *.youtu.be; child-src 'none'; form-action 'none';" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script nonce="A132076C">
       // Migration: TODO: remove this
@@ -44,16 +44,6 @@
   <body class="w-full">
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
-    <script
-      nonce="A132076C"
-      async
-      src="https://platform.twitter.com/widgets.js"
-      charset="utf-8"></script>
-    <script
-      nonce="A132076C"
-      async
-      src="https://platform.twitter.com/js/tweet.d7aeb21a88e025d2ea5f5431a103f586.js"
-      charset="utf-8"></script>
     <script
       defer
       data-domain="coracle.social"
