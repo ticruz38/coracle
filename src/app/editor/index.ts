@@ -83,7 +83,7 @@ export const getModifiedHardBreakExtension = (submit: () => void) =>
 export const getEditorOptions = ({
   submit,
   getPubkeyHints = (pubkey: string) => ctx.app.router.WriteRelays().getUrls(),
-  submitOnEnter,
+  submitOnEnter = true,
   element,
   defaultUploadUrl = getSetting("nip96_urls").slice(0, 1)[0] || "https://nostr.build",
   autofocus = false,
