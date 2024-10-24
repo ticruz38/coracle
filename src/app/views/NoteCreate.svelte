@@ -43,7 +43,6 @@
 
   let charCount: Writable<number>
   let wordCount: Writable<number>
-  let editorLoading: Writable<boolean>
   let showPreview = false
   let options
 
@@ -77,7 +76,7 @@
 
   const onSubmit = async ({skipNsecWarning = false} = {}) => {
     // prevent sending before media are uploaded and tags are correctly set
-    if ($editorLoading) return
+    if ($loading) return
 
     const content = editor.getText().trim()
 
@@ -191,7 +190,7 @@
 
     charCount = editor.storage.wordCount.characters
     wordCount = editor.storage.wordCount.words
-    editorLoading = editor.storage.fileUpload.loading
+    // editorLoading = editor.storage.fileUpload.loading
 
     if (pubkey && pubkey !== $session.pubkey) {
       editor.commands.insertNProfile({nprofile: pubkeyEncoder.encode(pubkey)})
@@ -208,6 +207,8 @@
       editor.commands.insertNEvent({nevent: "nostr:" + nevent})
     }
   })
+
+  $: loading = editor?.storage.fileUpload.loading
 </script>
 
 <form
@@ -282,7 +283,7 @@
             <NoteContent note={{content: editor.getText(), tags: []}} />
           {/if}
           <div class:hidden={showPreview}>
-            <Compose bind:element {editor} />
+            <Compose bind:element {editor} class="min-h-24" />
           </div>
         </div>
         <div class="flex items-center justify-end gap-2 text-neutral-200">
@@ -299,9 +300,8 @@
           </button>
         </div>
       </Field>
-      <!-- <NoteImages bind:this={images} bind:compose includeInContent={type !== "listing"} /> -->
       <div class="flex gap-2">
-        <Anchor button tag="button" type="submit" class="flex-grow" disabled={$editorLoading}
+        <Anchor button tag="button" type="submit" class="flex-grow" disabled={$loading}
           >Send</Anchor>
         <button
           class="hover:bg-white-l staatliches flex h-7 w-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"

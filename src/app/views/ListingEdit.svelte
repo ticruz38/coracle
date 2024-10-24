@@ -112,7 +112,7 @@
       </Field>
       <Field label="Description">
         <div class="rounded-xl border border-solid border-neutral-600 bg-white p-3 text-black">
-          <Compose bind:element={editorElement} {editor} />
+          <Compose bind:element={editorElement} {editor} class="min-h-24" />
         </div>
       </Field>
       <FieldInline label="Status">

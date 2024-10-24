@@ -13,14 +13,7 @@
   import PersonCircle from "src/app/shared/PersonCircle.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
   import GroupLink from "src/app/shared/GroupLink.svelte"
-  import {
-    env,
-    publish,
-    getClientTags,
-    tagsFromContent,
-    publishToZeroOrMoreGroups,
-    getSetting,
-  } from "src/engine"
+  import {env, publish, getClientTags, tagsFromContent, publishToZeroOrMoreGroups} from "src/engine"
   import {onMount} from "svelte"
   import {Editor} from "svelte-tiptap"
   import {getEditorOptions} from "src/app/editor"

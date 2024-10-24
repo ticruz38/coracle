@@ -12,14 +12,7 @@
   import Compose from "src/app/shared/Compose.svelte"
   import NsecWarning from "src/app/shared/NsecWarning.svelte"
   import NoteOptions from "src/app/shared/NoteOptions.svelte"
-  import {
-    env,
-    publish,
-    publishToZeroOrMoreGroups,
-    tagsFromContent,
-    getClientTags,
-    getSetting,
-  } from "src/engine"
+  import {env, publish, publishToZeroOrMoreGroups, tagsFromContent, getClientTags} from "src/engine"
   import {drafts} from "src/app/state"
   import {Editor} from "svelte-tiptap"
   import {getEditorOptions} from "src/app/editor"
@@ -144,11 +137,12 @@
     })
 
     editor = new Editor({...options})
-
     editorLoading = editor.storage.fileUpload.loading
   }
 
   $: editorElement && createEditor()
+
+  $: console.log($editorLoading)
 </script>
 
 <svelte:body on:click={onBodyClick} />
@@ -163,22 +157,18 @@
     {/if}
     <div
       transition:slide|local
-      class="note-reply relative my-2 flex flex-col gap-1"
+      class="note-reply relative my-2 gap-1"
       bind:this={container}
       on:click|stopPropagation>
       <AltColor background class="overflow-hidden rounded">
         <div class="p-3 text-neutral-100" class:rounded-b={mentions.length === 0}>
-          <Compose
-            bind:element={editorElement}
-            {editor}
-            style="min-height: 8rem"
-            class="rounded-md border p-2">
+          <Compose bind:element={editorElement} {editor}>
             <div class="flex flex-col justify-start" slot="addon">
               <button
                 on:click={send}
                 disabled={$editorLoading}
                 class="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full transition-all hover:bg-accent">
-                {#if loading}
+                {#if loading || $editorLoading}
                   <i class="fa fa-circle-notch fa-spin" />
                 {:else}
                   <i class="fa fa-paper-plane" />

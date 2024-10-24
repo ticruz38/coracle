@@ -41,7 +41,7 @@
 </p>
 <p>Now is a great time to introduce yourself to the Nostr network!</p>
 <div class="border-l-2 border-solid border-neutral-600 pl-4">
-  <Compose bind:element {editor} />
+  <Compose bind:element {editor} class="min-h-24" />
 </div>
 <div class="flex gap-2">
   <Anchor button on:click={prev}><i class="fa fa-arrow-left" /> Back</Anchor>

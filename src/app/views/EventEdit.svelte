@@ -96,15 +96,15 @@
       </Field>
       <Field label="Description">
         <div class="rounded-xl border border-solid border-neutral-600 bg-white p-3 text-black">
-          <Compose bind:element={editorElement} {editor} />
+          <Compose bind:element={editorElement} {editor} class="min-h-24" />
         </div>
       </Field>
       <div class="flex gap-2">
         <Anchor button tag="button" type="submit" class="flex-grow">Save</Anchor>
         <button
-          class="hover:bg-white-l staatliches flex h-7 w-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"
+          class="hover:bg-white-l staatliches flex h-7 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded bg-white px-6 text-xl text-black transition-all"
           on:click|preventDefault={editor.commands.selectFiles}>
-          <i class="fa fa-paperclip" />
+          <i class="fa fa-upload" />
         </button>
       </div>
     </FlexColumn>

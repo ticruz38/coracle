@@ -15,7 +15,7 @@
   onDestroy(() => editor?.destroy())
 </script>
 
-<div class="flex w-full">
-  <div bind:this={element} style={$$props.style} class={cx($$props.class, "w-full")} />
+<div class="relative flex w-full overflow-x-hidden">
+  <div bind:this={element} style={$$props.style} class={cx($$props.class, "relative w-full")} />
   <slot name="addon" />
 </div>
