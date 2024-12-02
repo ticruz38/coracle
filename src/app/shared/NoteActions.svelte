@@ -224,6 +224,8 @@
   onMount(() => {
     loadPubkeys(note.tags.filter(nthEq(0, "zap")).map(nth(1)))
   })
+
+  $: console.log("handlers", handlers)
 </script>
 
 <button
@@ -278,7 +280,7 @@
         <button
           slot="trigger"
           class="relative flex h-6 items-center gap-1 pt-1 transition-all hover:pb-1 hover:pt-0 sm:block">
-          <i class="fa-solid fa-list" />
+          <i class="iconify lucide-lab--layout-grid-plus" />
         </button>
         <div slot="tooltip" class="max-h-[300px] min-w-[180px] overflow-auto">
           <Menu>

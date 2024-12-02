@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-
+const {addIconSelectors} = require("@iconify/tailwind")
 const colors = {
   black: "black",
   white: "white",
@@ -76,5 +76,5 @@ module.exports = {
       ...dynamicColors,
     },
   },
-  plugins: [],
+  plugins: [addIconSelectors(["fa6-regular", "fa6-solid", "lucide-lab"])],
 }
